@@ -6,33 +6,68 @@
   <title>MuliaPay - SMP MULIA</title>
   <link rel="icon" href="https://lh3.googleusercontent.com/d/1EeSgf4ORYNKY1q9zdE00dLCzCnVf8Kj-" />
   <style>
+    /* RESET DASAR */
     html, body {
       margin: 0;
       padding: 0;
       width: 100%;
       height: 100%;
-      background-color: #eee;
-      overflow: hidden; /* Mencegah scroll ganda */
+      background-color: #f8fafc;
+      overflow: hidden; 
+      font-family: sans-serif;
     }
 
+    /* =========================================
+       STYLE 1: UNTUK APLIKASI KASIR (IFRAME) 
+       ========================================= */
     .iframe-container {
       width: 100%;
-      height: 100dvh; /* Menggunakan dvh agar pas di mobile browser */
+      height: 100dvh; 
       overflow: hidden;
+      display: none; /* Disembunyikan secara default */
     }
-
     iframe {
       display: block;
       width: 100%;
       height: 100%;
       border: none;
     }
+
+    /* =========================================
+       STYLE 2: UNTUK HALAMAN VERIFIKASI QR 
+       ========================================= */
+    .verify-container {
+      display: none; /* Disembunyikan secara default */
+      justify-content: center;
+      align-items: center;
+      min-height: 100dvh;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .card { background-color: #f0fdf4; border: 2px solid #10b981; border-radius: 15px; padding: 30px; text-align: center; max-width: 400px; width: 100%; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+    .logo { max-height: 70px; object-fit: contain; margin-bottom: 10px; }
+    .school-name { margin: 0; color: #1e293b; font-size: 16px; font-weight: bold; }
+    .title { color: #10b981; margin-bottom: 5px; margin-top: 0; }
+    .subtitle { font-size: 12px; color: #059669; margin-top: 0; }
+    .divider { border: 1px dashed #10b981; margin: 20px 0; }
+    .info-box { margin-bottom: 15px; }
+    .label { font-size: 12px; color: gray; margin: 0; }
+    .value { font-weight: bold; margin: 5px 0; color: #1e293b; }
+    .rincian { text-align: left; font-size: 13px; color: #475569; padding-left: 20px; margin: 5px 0; }
+    .total-box { background: white; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
+    .total-value { font-size: 24px; font-weight: 900; color: #1e293b; margin: 5px 0; }
+    .footer { font-size: 11px; color: gray; margin-top: 15px; }
+    .error { color: #ef4444; margin-top: 20px; font-size: 20px;}
+    .loading { color: #64748b; font-weight: bold; margin: 40px 0;}
   </style>
 </head>
 <body>
-  <div class="iframe-container">
+
+  <!-- CONTAINER 1: IFRAME APLIKASI (POS) -->
+  <div id="app-container" class="iframe-container">
     <iframe
-      id="app"   src="https://script.google.com/macros/s/AKfycbx65jZO6j2N1oVKK2BNxwRqn6riSo2WOOUSfUkkKBzZpyRZnMnjocmnnUhClgSwvWol/exec"
+      id="app"   
+      src="https://script.google.com/macros/s/AKfycbyM-7isc_Q_0EVDASbgtGW_3nayEeztBwkV3-vtGQYuS5r0l60V2pwpCm_8JUKB1OcsOg/exec"
       scrolling="yes"
       allowfullscreen="true"
       webkitallowfullscreen="true"
@@ -40,5 +75,84 @@
       allow="fullscreen; camera; microphone; display-capture; geolocation;">
     </iframe>
   </div>
+
+  <!-- CONTAINER 2: VERIFIKASI QR -->
+  <div id="verify-container" class="verify-container">
+    <div id="content" class="card">
+        <div class="loading">⏳ Memverifikasi data ke server...</div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT UNTUK MENGATUR LALU LINTAS HALAMAN -->
+  <script>
+    // URL Web App Google Apps Script Anda
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyM-7isc_Q_0EVDASbgtGW_3nayEeztBwkV3-vtGQYuS5r0l60V2pwpCm_8JUKB1OcsOg/exec";
+
+    // Cek parameter di URL browser
+    const urlParams = new URLSearchParams(window.location.search);
+    const trxId = urlParams.get('v');
+
+    const appContainer = document.getElementById('app-container');
+    const verifyContainer = document.getElementById('verify-container');
+    const contentDiv = document.getElementById('content');
+
+    if (trxId) {
+        // ==========================================
+        // JIKA ADA "?v=", TAMPILKAN MODE VERIFIKASI QR
+        // ==========================================
+        verifyContainer.style.display = 'flex';
+        document.body.style.overflow = 'auto'; // Mengizinkan scroll di HP
+        
+        // Memanggil API ke Google Script
+        fetch(GAS_URL + "?api=verify&v=" + trxId)
+            .then(response => response.json())
+            .then(res => {
+                if (res.success) {
+                    const data = res.data;
+                    
+                    let rincianHtml = "<ul class='rincian'>";
+                    data.items.forEach(item => {
+                        rincianHtml += `<li>${item.name} (Rp ${Number(item.amount).toLocaleString('id-ID')})</li>`;
+                    });
+                    rincianHtml += "</ul>";
+
+                    let logoHtml = data.logo ? `<img src="${data.logo}" class="logo" />` : "";
+
+                    contentDiv.innerHTML = `
+                        ${logoHtml}
+                        <h3 class="school-name">${data.sekolah}</h3>
+                        <hr style="border: 1px solid #cbd5e1; margin: 15px 0;">
+                        <h2 class="title">✅ PEMBAYARAN VALID</h2>
+                        <p class="subtitle">Terverifikasi secara digital</p>
+                        <hr class="divider">
+                        <div class="info-box">
+                            <p class="label">Nama Siswa:</p>
+                            <p class="value">${data.siswa}</p>
+                        </div>
+                        <div class="info-box">
+                            <p class="label">Rincian Pembayaran:</p>
+                            ${rincianHtml}
+                        </div>
+                        <div class="total-box">
+                            <p class="label">Total Bayar:</p>
+                            <p class="total-value">Rp ${Number(data.nominal).toLocaleString('id-ID')}</p>
+                        </div>
+                        <p class="footer">Waktu Transaksi: ${data.tanggal}</p>
+                    `;
+                } else {
+                    contentDiv.innerHTML = "<h2 class='error'>❌ DATA TIDAK DITEMUKAN</h2><p style='color:gray; font-size:14px;'>Transaksi ini tidak terdaftar di sistem.</p>";
+                }
+            })
+            .catch(error => {
+                contentDiv.innerHTML = "<h2 class='error'>⚠️ GAGAL TERHUBUNG</h2><p style='color:gray; font-size:14px;'>Silakan periksa internet atau coba lagi.</p>";
+            });
+
+    } else {
+        // ==========================================
+        // JIKA TIDAK ADA "?v=", TAMPILKAN APLIKASI KASIR
+        // ==========================================
+        appContainer.style.display = 'block';
+    }
+  </script>
 </body>
 </html>
